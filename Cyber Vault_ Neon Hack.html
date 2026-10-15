@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cyber Vault: Neon Hack</title>
+<style>
+/* ===== Layout & Theme ===== */
+:root{--c:min(11vw,calc((100vh - 210px)/3.05),135px);color-scheme:dark}
+*{box-sizing:border-box;margin:0;user-select:none;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:#05030d;color:#cff;font-family:Consolas,'Courier New',monospace;overflow:hidden;
+ background-image:radial-gradient(ellipse at 50% 120%,#3a0a5a,transparent 60%),linear-gradient(#0ff1 1px,transparent 1px),linear-gradient(90deg,#0ff1 1px,transparent 1px);background-size:100% 100%,40px 40px,40px 40px}
+#app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0)}
+header{width:100%;display:flex;justify-content:space-between;align-items:center;padding:6px 14px;gap:8px}
+h1{font-size:clamp(14px,3.2vh,28px);letter-spacing:.15em;color:#0ff;text-shadow:0 0 8px #0ff,0 0 24px #0ff;animation:fl 4s infinite}
+h1 span{color:#f0f;text-shadow:0 0 8px #f0f,0 0 24px #f0f}
+@keyframes fl{0%,92%,96%,100%{opacity:1}94%{opacity:.5}}
+#hud{display:none;color:#fc0;text-shadow:0 0 8px #f90;font-weight:900;font-size:clamp(12px,2.6vh,20px)}
+#hud.on{display:block}
+/* ===== Walzen ===== */
+#frame{position:relative;padding:10px;border-radius:14px;border:2px solid #0ff;box-shadow:0 0 20px #0ff8,inset 0 0 30px #0ff3;background:#0008}
+#reels{display:grid;grid-template-columns:repeat(5,var(--c));gap:6px}
+.reel{height:calc(var(--c)*3);overflow:hidden;border-radius:8px;background:linear-gradient(#10062a,#07031a);border:1px solid #f0f6}
+.reel.tense{animation:tn .25s infinite alternate}
+@keyframes tn{to{box-shadow:0 0 18px #f33,inset 0 0 18px #f33;border-color:#f33}}
+.strip.blur{filter:blur(3px) brightness(1.4)}            /* Bewegungsunschärfe */
+.cell{height:var(--c);width:var(--c);padding:12%;position:relative}
+.cell svg{width:100%;height:100%;filter:drop-shadow(0 0 5px currentColor)}
+.cell.wild{background:radial-gradient(#f0f4,transparent 70%)}
+.cell.win{animation:pl .45s infinite alternate;box-shadow:inset 0 0 0 2px #0ff,inset 0 0 20px #0ff;z-index:1}
+@keyframes pl{to{transform:scale(1.08);box-shadow:inset 0 0 0 3px #fff,inset 0 0 30px #0ff}}
+.cell.sticky{box-shadow:inset 0 0 0 2px #f0f,inset 0 0 18px #f0f}
+.cell.sticky::after{content:'🔒';position:absolute;top:2px;right:4px;font-size:calc(var(--c)*.18)}
+.ft{position:absolute;left:50%;top:45%;font-size:clamp(22px,7vh,56px);font-weight:900;color:#fc0;text-shadow:0 0 12px #f90;pointer-events:none;animation:rise 1.4s forwards;z-index:5;white-space:nowrap}
+@keyframes rise{from{transform:translate(-50%,0) scale(.5);opacity:0}20%{opacity:1;transform:translate(-50%,-10px) scale(1.2)}to{transform:translate(-50%,-90px) scale(1);opacity:0}}
+/* ===== Dashboard ===== */
+footer{width:min(1000px,100%);display:flex;gap:clamp(6px,1.5vw,16px);align-items:center;justify-content:center;padding:8px 10px 10px;flex-wrap:wrap}
+.box{background:#0008;border:1px solid #0ff6;border-radius:10px;padding:5px 10px;text-align:center;min-width:clamp(80px,14vw,140px)}
+.box small{display:block;font-size:10px;color:#8ff;letter-spacing:.15em}
+.box b{font-size:clamp(16px,3.4vh,26px);color:#fff;text-shadow:0 0 8px #0ff}
+#winbox b{color:#fc0;text-shadow:0 0 8px #f90}
+.grp{display:flex;gap:6px;align-items:center}
+button{font:inherit;color:#0ff;background:#0ff1;border:1px solid #0ff;border-radius:8px;padding:8px 12px;cursor:pointer;text-shadow:0 0 6px #0ff;transition:.15s}
+button:hover:not(:disabled){background:#0ff3;box-shadow:0 0 12px #0ff}
+button:disabled{opacity:.4;cursor:not-allowed}
+#spin{width:clamp(70px,16vh,104px);height:clamp(70px,16vh,104px);border-radius:50%;font-weight:900;letter-spacing:.1em;color:#fff;background:radial-gradient(#f0f,#80a);border:3px solid #fff;box-shadow:0 0 25px #f0f,inset 0 0 20px #fff8;animation:sp 1.6s infinite alternate;text-shadow:0 0 8px #fff}
+@keyframes sp{to{box-shadow:0 0 45px #f0f,0 0 10px #fff,inset 0 0 20px #fff8}}
+#reset{color:#f66;border-color:#f66}
+/* ===== Overlays ===== */
+#fx{position:fixed;inset:0;pointer-events:none;z-index:30}
+#msg{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:20;text-align:center;background:#0006;padding:10px}
+#msg.on{display:flex}
+#msg h2{font-size:clamp(30px,9vh,80px);color:#fc0;text-shadow:0 0 20px #f90,0 0 50px #f0f;animation:zm .6s ease-out}
+#msg p{font-size:clamp(14px,4vh,32px);color:#0ff}
+@keyframes zm{from{transform:scale(.2);opacity:0}}
+#fw{position:fixed;inset:0;background:radial-gradient(#102,#000 90%);display:none;align-items:center;justify-content:center;z-index:15;text-align:center;padding:10px}
+#fw.on{display:flex}
+#fw h2{color:#0f8;text-shadow:0 0 15px #0f8;font-size:clamp(20px,5vh,40px)}
+#nodes{display:flex;gap:clamp(6px,2vw,20px);justify-content:center;margin:14px 0}
+.node{width:clamp(60px,15vw,140px);height:clamp(80px,34vh,170px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:clamp(20px,6vh,40px);font-weight:900;color:#0ff}
+.node svg{width:50%;stroke:currentColor;fill:none;stroke-width:3}
+.node small{font-size:10px}
+.node.good{color:#0f8;border-color:#0f8;box-shadow:0 0 20px #0f8}
+.node.bad{color:#f33;border-color:#f33;box-shadow:0 0 20px #f33;animation:shk .4s}
+.node.dim{opacity:.45}
+@keyframes shk{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+#fwsum{font-size:clamp(20px,6vh,44px);color:#fc0;text-shadow:0 0 12px #f90;font-weight:900}
+@media(orientation:portrait){:root{--c:17vw}}
+/* ===== Hack-Meter ===== */
+#meter{display:flex;align-items:center;gap:8px;width:min(720px,94vw);font-size:clamp(10px,2.2vh,14px);color:#8ff}
+#mbar{flex:1;height:clamp(10px,2.2vh,16px);border:1px solid #0ff;border-radius:9px;overflow:hidden;background:#000a;box-shadow:0 0 8px #0ff6}
+#mfill{display:block;height:100%;width:0;background:linear-gradient(90deg,#0ff,#0f8,#fc0,#f0f,#0ff);background-size:200% 100%;transition:width .6s;animation:mv 2s linear infinite}
+@keyframes mv{to{background-position:200% 0}}
+#meter.full #mbar{animation:pl2 .5s infinite alternate}
+#meter.full #mp{color:#fc0;text-shadow:0 0 10px #fc0}
+@keyframes pl2{to{box-shadow:0 0 22px #fc0;border-color:#fc0}}
+#pips{white-space:nowrap}
+/* ===== Hacker-PC ===== */
+#mid{display:flex;align-items:center;gap:clamp(8px,1.6vw,18px)}
+#pc{width:clamp(120px,19vw,210px);height:calc(var(--c)*3 + 26px);display:flex;flex-direction:column;border:3px solid #0f8;border-radius:12px 12px 6px 6px;background:#02120a;box-shadow:0 0 22px #0f85,inset 0 0 25px #0f83;padding:6px;font-size:clamp(8px,1.9vh,12px);color:#0f8;position:relative}
+#pch{display:flex;justify-content:space-between;border-bottom:1px solid #0f85;padding-bottom:3px;margin-bottom:3px}
+#pcw{flex:1;min-height:0;position:relative;overflow:hidden}
+#pcs{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;line-height:1.35;white-space:nowrap}
+#pcs div{animation:tp .3s steps(10) both;overflow:hidden;text-shadow:0 0 5px currentColor}
+@keyframes tp{from{max-width:0}to{max-width:100%}}
+#pcs div:last-child::after{content:'█';animation:bk .6s steps(1) infinite}
+@keyframes bk{50%{opacity:0}}
+#pcm{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;font-weight:900;font-size:clamp(11px,2.6vh,18px);background:#000c;z-index:2}
+#pc.full{border-color:#fc0;color:#fc0;animation:pf .5s infinite alternate}
+@keyframes pf{to{box-shadow:0 0 45px #fc0,inset 0 0 30px #fc06}}
+#pc.deny{border-color:#f33;color:#f33;animation:shk .4s 2}
+#pc.deny #pcm{display:flex;text-shadow:0 0 10px #f33}
+#pcf{padding-top:3px;border-top:1px solid #0f85;margin-top:3px;white-space:nowrap}
+@media(orientation:portrait){#mid{flex-direction:column}#pc{width:calc(var(--c)*5 + 50px);height:90px}}
+/* ===== Bonus-Cinematic ===== */
+#intro{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:25;text-align:center;background:radial-gradient(circle,#000a,#000f);overflow:hidden;--k:#0f8;pointer-events:none;padding:10px}
+#intro.on{display:flex;animation:fi .3s}
+@keyframes fi{from{opacity:0}}
+#intro::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,#0000 0 3px,#0003 3px 4px);animation:scl 1s linear infinite}
+@keyframes scl{to{background-position:0 8px}}
+.ring{position:absolute;width:20vmin;height:20vmin;border:4px solid var(--k);border-radius:50%;box-shadow:0 0 30px var(--k),inset 0 0 30px var(--k);animation:rg 1.6s ease-out infinite;opacity:0}
+@keyframes rg{from{transform:scale(.3);opacity:1}to{transform:scale(6);opacity:0}}
+.ico{width:clamp(90px,28vh,220px);aspect-ratio:1;color:var(--k);animation:ic 2.8s ease-out both;position:relative;filter:drop-shadow(0 0 25px var(--k))}
+.ico svg{width:100%;height:100%}
+@keyframes ic{0%{transform:scale(0) rotate(-270deg)}35%{transform:scale(1.3) rotate(10deg)}50%,100%{transform:scale(1) rotate(0)}}
+#intro h2{position:relative;font-size:clamp(28px,10vh,90px);color:#fff;text-shadow:0 0 20px var(--k),0 0 50px var(--k);animation:gl .25s steps(2) infinite;letter-spacing:.08em}
+@keyframes gl{0%{transform:translate(0)}50%{transform:translate(-3px,2px);text-shadow:4px 0 #f0f,-4px 0 #0ff}100%{transform:translate(3px,-2px)}}
+#intro p{position:relative;color:var(--k);font-size:clamp(12px,3.4vh,26px);margin-top:8px;animation:zm .8s .4s both}
+.shake{animation:shk2 .5s 3}
+@keyframes shk2{20%{transform:translate(-6px,4px)}40%{transform:translate(6px,-4px)}60%{transform:translate(-4px,-3px)}80%{transform:translate(4px,3px)}}
+/* ===== Jackpots, Modus-Badge, Terminal-Tabs ===== */
+.jps{display:flex;gap:clamp(6px,1.5vw,14px);justify-content:center;font-size:clamp(9px,2.1vh,13px);font-weight:900}
+.jps span{border:1px solid currentColor;border-radius:6px;padding:1px 8px;white-space:nowrap;background:#0006;text-shadow:0 0 6px currentColor;box-shadow:0 0 8px currentColor}
+.j0{color:#0f8}.j1{color:#0ff}.j2{color:#f6f}.j3{color:#fc0;animation:pf2 .8s infinite alternate}
+#mode{--mc:#0ff;padding:3px 12px;border:1px solid var(--mc);color:var(--mc);border-radius:20px;font-weight:900;font-size:clamp(10px,2.4vh,16px);text-shadow:0 0 8px var(--mc);box-shadow:0 0 12px var(--mc);white-space:nowrap}
+#pch{gap:4px}
+.tb{cursor:pointer;opacity:.55;font-size:.9em;padding:1px 3px;border-radius:4px;white-space:nowrap}
+.tb[data-i="0"],.pcs[data-i="0"]{color:#0f8}.tb[data-i="1"],.pcs[data-i="1"]{color:#f6f}.tb[data-i="2"],.pcs[data-i="2"]{color:#0ff}
+.tb.on{opacity:1;background:#fff1;box-shadow:0 0 8px currentColor}
+.tb.full{opacity:1;animation:pf2 .5s infinite alternate}
+@keyframes pf2{to{color:#fc0;text-shadow:0 0 8px #fc0}}
+.pcs{position:absolute;inset:0;display:none;flex-direction:column;justify-content:flex-end;overflow:hidden;line-height:1.35;white-space:nowrap}
+.pcs.on{display:flex}
+.pcs div{animation:tp .3s steps(10) both;overflow:hidden;text-shadow:0 0 5px currentColor}
+.pcs div:last-child::after{content:'█';animation:bk .6s steps(1) infinite}
+.cell.orb{background:radial-gradient(#0ff4,transparent 70%)}
+#hud{font-size:calc(clamp(12px,2.6vh,20px)*(1 + var(--lv,0)*.07));transition:font-size .4s} /* HUD wächst mit dem Overclock-Level */
+/* ===== Jackpot-Plaketten ===== */
+#rain{position:fixed;inset:0;display:none;pointer-events:none;z-index:12}
+.jps{font-size:clamp(10px,2.4vh,15px);align-items:stretch;gap:clamp(6px,1.2vw,12px)}
+.jc{--k:#0f8;position:relative;overflow:hidden;min-width:clamp(70px,13vw,150px);padding:2px 10px 3px;text-align:center;border-radius:10px;color:#fff;border:2px solid var(--k);background:linear-gradient(180deg,#2a1450,#07021a);box-shadow:0 0 14px var(--k),inset 0 0 10px #0008}
+.jc small{display:block;font-size:.8em;letter-spacing:.2em;color:var(--k);text-shadow:0 0 8px var(--k)}
+.jc b{display:block;font-size:1.35em;text-shadow:0 0 8px var(--k)}
+.jc::after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,#fff6,transparent);transform:skewX(-20deg);animation:shn 3.5s infinite}
+@keyframes shn{0%,60%{left:-60%}100%{left:130%}}
+.jc.j0{--k:#0f8}.jc.j1{--k:#0ff}.jc.j2{--k:#f6f}
+.jc.j3{--k:#fc0;min-width:clamp(90px,17vw,190px);transform:scale(1.08);animation:gp 1.2s infinite alternate}
+@keyframes gp{to{box-shadow:0 0 28px #fc0,0 0 6px #fff,inset 0 0 18px #fc08}}
+.jc.hit{animation:gp .3s infinite alternate;transform:scale(1.15);z-index:2}
+@media(max-height:480px){:root{--c:min(11vw,calc((100vh - 170px)/3.05))}.jc small,.jc b{display:inline;font-size:1em}.jc small{margin-right:6px}}
+/* ===== Core Link ===== */
+#lk{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:16;background:radial-gradient(#023,#000 90%);--d:min(13vw,calc((100vh - 220px)/3));padding:10px}
+#lk.on{display:flex}
+#lkh{display:flex;gap:18px;align-items:center;font-weight:900;font-size:clamp(14px,3.4vh,26px);color:#0ff;text-shadow:0 0 10px #0ff}
+#lkt{color:#fc0;text-shadow:0 0 10px #f90}
+#lkg{display:grid;grid-template-columns:repeat(5,var(--d));gap:6px}
+.oc{width:var(--d);height:var(--d);border-radius:50%;border:2px dashed #0ff4;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:900;font-size:clamp(9px,2.4vh,16px);color:#fff}
+.oc.spn{animation:fk .15s infinite alternate;border-color:#0ff}
+@keyframes fk{to{background:#0ff3;box-shadow:0 0 14px #0ff}}
+.oc.on{border:2px solid #0ff;background:radial-gradient(circle at 35% 30%,#fff9,#0ff 30%,#046 85%);box-shadow:0 0 18px #0ff;text-shadow:0 0 4px #000}
+.oc.j{background:radial-gradient(circle at 35% 30%,#fff9,#fc0 30%,#740 85%);box-shadow:0 0 22px #fc0}
+.oc.pop{animation:pp .5s}
+@keyframes pp{from{transform:scale(2.2);opacity:0}}
+/* ===== Core Link / Hold&Spin: Slot-Walzen in den Feldern ===== */
+#app{position:relative;z-index:1}
+#lkg{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.bd{display:grid;grid-template-columns:repeat(5,var(--d));gap:6px}
+#lk.two{--d:min(7.2vw,calc((100vh - 220px)/3))}
+.two .oc{font-size:clamp(7px,1.6vh,12px)}
+.oc{position:relative;overflow:hidden}
+.oc b{position:relative;z-index:1}
+.oc.spn{animation:none;border:2px solid #fff6;background:#0006}
+.oc.st{animation:stl .3s}
+@keyframes stl{from{transform:translateY(-12%)}}
+.rs{position:absolute;left:0;top:0;width:100%;animation:rl .28s linear infinite;filter:blur(1.5px)}
+.rs i{display:block;width:100%;height:var(--d);position:relative}
+.rs i.rb::after{content:'';position:absolute;inset:18%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff9,var(--bc,#0ff) 40%,#0000 90%)}
+.rs i.re::after{content:'';position:absolute;inset:44%;border-radius:50%;background:#fff3}
+@keyframes rl{to{transform:translateY(calc(var(--d)*-4))}}
+.oc.on.x{border:2px solid #3fd;background:radial-gradient(circle at 35% 30%,#fff9,#3fd 30%,#064 85%);box-shadow:0 0 22px #3fd;animation:xv 1.1s forwards}
+@keyframes xv{70%{transform:scale(1.15)}to{transform:scale(0);opacity:0}}
+.oc.mc{box-shadow:0 0 18px #f80,inset 0 0 0 3px #fc0}
+.oc em{position:absolute;font-style:normal;font-weight:900;font-size:1.6em;color:#fff;text-shadow:0 0 10px #f80;background:#e22c;border-radius:8px;padding:0 6px;z-index:3;animation:pp .6s}
+/* ===== Slot 2: Dragon Pearl (Theme) ===== */
+#lk.t2{--bc:#fc0;background:radial-gradient(#3a0a0a,#000 90%)}
+#lk.t2 #lkh{color:#fc0;text-shadow:0 0 10px #f80}
+#lk.t2 .oc.on{border-color:var(--pc,#fc0);background:radial-gradient(circle at 35% 30%,#fff9,var(--pc,#fc0) 35%,#200 95%);box-shadow:0 0 18px var(--pc,#fc0)}
+#lk.t2 .oc.on.j{border-color:#f44;background:radial-gradient(circle at 35% 30%,#fff9,#e33 30%,#600 85%);box-shadow:0 0 22px #f44}
+#shr{display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;width:clamp(120px,19vw,210px);height:calc(var(--c)*3 + 26px);border:3px solid #fc0;border-radius:12px;background:radial-gradient(#3a0a0a,#120303);box-shadow:0 0 22px #fc08,inset 0 0 25px #e224;color:#fc0;font-size:clamp(9px,2vh,13px);padding:6px}
+#shs{width:50%;animation:spin 6s linear infinite;filter:drop-shadow(0 0 12px #f80)}
+#shs svg{width:100%}
+@keyframes spin{to{transform:rotate(360deg)}}
+#shp{font-size:1.15em;letter-spacing:.15em;line-height:1.4;text-shadow:0 0 10px currentColor}
+@media(orientation:portrait){#shr{width:calc(var(--c)*5 + 50px);height:90px}}
+body.t2 #shr{display:flex}body.t2 #pc{display:none}
+body.t2{background-color:#1a0505;background-image:radial-gradient(circle at 50% 110%,#a2200066,transparent 55%),radial-gradient(circle at 50% 100%,transparent 38%,#fc03 39%,transparent 42%,transparent 55%,#fc02 56%,transparent 59%);background-size:100% 100%,64px 32px}
+body.t2 h1{color:#fc0;text-shadow:0 0 8px #f80,0 0 24px #e22;animation:none}
+body.t2 h1 span{color:#f44;text-shadow:0 0 8px #f44,0 0 24px #e22}
+body.t2 footer,body.t2 header button{filter:hue-rotate(-140deg)}
+body.t2 #frame{background:linear-gradient(#1a0505,#1a0505) padding-box,linear-gradient(90deg,#fc0,#e22,#fc0,#3d9,#fc0) border-box;background-size:auto,300% 100%;box-shadow:0 0 28px #e226,0 0 50px #fc04}
+body.t2 .reel{border-color:#fc08;background:linear-gradient(#3a0a0a,#120303)}
+body.t2 .cell.orb{background:radial-gradient(#fc04,transparent 70%)}
+body.t2 .cell.win{animation-name:plt;box-shadow:inset 0 0 0 2px #fc0,inset 0 0 20px #f80}
+@keyframes plt{to{transform:scale(1.08);box-shadow:inset 0 0 0 3px #fff,inset 0 0 30px #fc0}}
+#fl{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0;display:none}
+body.t2 #fl{display:block}
+#fl i{position:absolute;top:0;opacity:.35;animation:flt 16s linear infinite}
+#fl i svg{width:100%}
+@keyframes flt{from{transform:translateY(110vh) rotate(-8deg)}to{transform:translateY(-20vh) rotate(8deg)}}
+#pk{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:17;background:radial-gradient(#400,#000 90%);text-align:center;padding:10px;color:#fdd}
+#pk.on{display:flex}
+#pk h2{color:#fc0;font-size:clamp(20px,6vh,44px);text-shadow:0 0 20px #f80}
+#pkc{display:flex;gap:clamp(8px,2vw,22px);flex-wrap:wrap;justify-content:center}
+.pcard{--k:#fc0;width:clamp(120px,24vw,230px);padding:12px;border-radius:16px;border:2px solid var(--k);background:linear-gradient(#2a0a0a,#0a0202);color:#fff;box-shadow:0 0 20px var(--k);display:flex;flex-direction:column;align-items:center;gap:6px;animation:fl2 2.4s ease-in-out infinite alternate}
+.pcard svg{width:55%;filter:drop-shadow(0 0 10px var(--k))}
+.pcard b{color:var(--k);letter-spacing:.1em}
+.pcard small{font-size:11px;color:#fdd}
+@keyframes fl2{to{transform:translateY(-5px)}}
+/* ===== Farbigeres UI ===== */
+body{background-image:radial-gradient(circle at 12% 18%,#0ff3,transparent 38%),radial-gradient(circle at 88% 22%,#f0f3,transparent 38%),radial-gradient(ellipse at 50% 120%,#6a0a8a,transparent 60%),linear-gradient(#0ff1 1px,transparent 1px),linear-gradient(90deg,#f0f1 1px,transparent 1px);background-size:100% 100%,100% 100%,100% 100%,40px 40px,40px 40px}
+#frame{border:3px solid transparent;background:linear-gradient(#0b0620,#0b0620) padding-box,linear-gradient(90deg,#0ff,#f0f,#fc0,#0f8,#0ff) border-box;background-size:auto,300% 100%;animation:bd 6s linear infinite;box-shadow:0 0 28px #f0f6,0 0 50px #0ff4}
+@keyframes bd{to{background-position:0 0,300% 0}}
+.reel:nth-child(1){border-color:#0ffa;background:linear-gradient(#0a2a3a,#07031a)}
+.reel:nth-child(2){border-color:#f0fa;background:linear-gradient(#2a0a3a,#07031a)}
+.reel:nth-child(3){border-color:#fc0a;background:linear-gradient(#3a2a05,#07031a)}
+.reel:nth-child(4){border-color:#0f8a;background:linear-gradient(#053a22,#07031a)}
+.reel:nth-child(5){border-color:#f64a;background:linear-gradient(#3a1005,#07031a)}
+footer>.box:first-child{border-color:#0f8;box-shadow:0 0 12px #0f84}footer>.box:first-child b{color:#0f8;text-shadow:0 0 8px #0f8}
+.grp .box{border-color:#f0f;box-shadow:0 0 12px #f0f4}.grp .box b{color:#f6f;text-shadow:0 0 8px #f0f}
+#winbox{border-color:#fc0;box-shadow:0 0 12px #fc04}
+#minus{color:#f6f;border-color:#f6f;background:#f0f1}#plus{color:#0f8;border-color:#0f8;background:#0f81}#max,#curbtn{color:#fc0;border-color:#fc0;background:#fc01}
+</style></head><body>
+<div id="app">
+ <header><h1 id="ttl">CYBER VAULT <span>NEON HACK</span></h1>
+  <div id="mode">BASE GAME</div><div id="hud">OVERCLOCK · SPINS <b id="fsl">0</b> · MULTI <b id="fsm">1</b>x · KEYS <b id="fsk">○○○○</b></div>
+  <div style="display:flex;gap:6px"><button id="gamebtn" title="Slot wechseln">🐉 SLOT 2</button><button id="denbtn" title="Denomination">DENOM 0,01 €</button><button id="curbtn" title="Währung wechseln">CR → €</button><button id="mute" title="Sound">🔊</button></div></header>
+ <div id="jp" class="jps"></div>
+ <!-- Drei Hacker-Terminals (FW/OC/LINK): reine Teaser, geben keinen Bonus -->
+ 
+ <div id="mid"><div id="shr"><div id="shs"></div><b>DRACHENPERLEN</b><div id="shp">○○○○</div><small>4 GLEICHE PERLEN = BONUS</small></div><div id="pc"><div id="pch"><span class="tb on" data-i="0" title="Firewall Breach">FW <b>0%</b></span><span class="tb" data-i="1" title="Overclock">OC <b>0%</b></span><span class="tb" data-i="2" title="Core Link">LINK <b>0%</b></span></div><div id="pcw"><div class="pcs on" data-i="0"></div><div class="pcs" data-i="1"></div><div class="pcs" data-i="2"></div><div id="pcm"></div></div><div id="pcf"><span id="pips"></span></div></div><div id="frame"><div id="reels"></div></div></div>
+ <footer>
+  <div class="box"><small id="lb">CREDITS</small><b id="bal">0</b></div>
+  <div class="grp"><button id="minus">−</button><div class="box"><small>EINSATZ</small><b id="bet">0</b></div><button id="plus">+</button><button id="max">MAX</button></div>
+  <button id="spin">SPIN</button>
+  <div class="box" id="winbox"><small>GEWINN</small><b id="win">0</b></div>
+  <button id="reset">RESET</button>
+ </footer>
+</div>
+<canvas id="fx"></canvas>
+<canvas id="rain"></canvas>
+<div id="fl"></div>
+<!-- Slot 2: Schrein-Auswahl vor dem Bonus -->
+<div id="pk"><h2>DRACHENPERLEN ERWACHT</h2><p>Wähle deinen Schrein</p><div id="pkc"></div></div>
+<div id="msg"></div>
+<div id="intro"></div>
+<!-- Core Link: Hold & Respin Overlay -->
+<div id="lk"><div id="lkh"><b>CORE LINK</b><span id="lks">RESPINS 3</span><span id="lkt">0</span></div><div id="lkg"></div><div id="lkj" class="jps"></div></div>
+<div id="fw"><div><h2>THE FIREWALL BREACH</h2><p>Hacke Server-Nodes · Multiplikatoren sammeln · Falle = Systemabsturz</p><div id="nodes"></div><div id="fwsum"></div></div></div>
+<script>
+'use strict';
+/* ================= Helfer & Zustand ================= */
+const $=s=>document.querySelector(s),sleep=ms=>new Promise(r=>setTimeout(r,ms)),fmt=n=>eur?(n*DN[di]).toLocaleString('de-DE',{style:'currency',currency:'EUR'}):n.toLocaleString('de-DE'); // 1 Credit = 0,01 €
+const B=[10,20,50,100,200,500,1000];               // Einsatzstufen (Gesamteinsatz, 10 Linien)
+let bal=10000,bi=3,bet=100,busy=false,free=false,fsLeft=0,mult=1,fsWin=0,sticky=new Set(),force=null,cur,eur=false,meter=0,lw=0,spinWait=null,M=[0,0,0],SH=[0,0,0],di=0,DN=[.01,.02,.05,.1],kc=0,lvl=0,T2=false; // M = Terminal-Füllstände, DN = Denominationen (€ pro Credit)
+
+/* ================= Symbole (SVG, Neon) ================= */
+const sv=(c,i)=>`<svg viewBox="0 0 64 64" style="color:${c}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${i}</svg>`;
+const SYM1=[
+ /*0 Mikrochip*/ sv('#0ff','<rect x="16" y="16" width="32" height="32" rx="4"/><rect x="25" y="25" width="14" height="14" fill="currentColor"/><path d="M22 8v8M32 8v8M42 8v8M22 48v8M32 48v8M42 48v8M8 22h8M8 32h8M8 42h8M48 22h8M48 32h8M48 42h8"/>'),
+ /*1 Festplatte*/ sv('#b4f','<rect x="8" y="14" width="48" height="36" rx="5"/><circle cx="28" cy="32" r="11"/><circle cx="28" cy="32" r="3" fill="currentColor"/><path d="M40 22l10 10"/><circle cx="50" cy="44" r="2" fill="currentColor"/>'),
+ /*2 Stromkabel*/ sv('#fe3','<path d="M22 6v14M42 6v14"/><rect x="14" y="20" width="36" height="16" rx="4"/><path d="M32 36v8c0 8-12 6-12 14"/>'),
+ /*3 Hacker-Maske*/ sv('#f4a','<path d="M12 12c10 6 30 6 40 0v24c0 12-10 20-20 22-10-2-20-10-20-22z"/><path d="M19 27q5-4 11 0M34 27q5-4 11 0M32 30v7M22 44q10 6 20 0"/>'),
+ /*4 Goldener Tresor*/ sv('#fc0','<rect x="6" y="8" width="52" height="48" rx="6"/><circle cx="32" cy="32" r="14"/><path d="M32 22v20M22 32h20"/><circle cx="32" cy="32" r="4" fill="currentColor"/>'),
+ /*5 Kryptomünze*/ sv('#f90','<circle cx="32" cy="32" r="25"/><circle cx="32" cy="32" r="19" stroke-width="1.5"/><path d="M32 18l12 7v14l-12 7-12-7V25z" fill="currentColor"/>'),
+ /*6 AI-Core (Scatter)*/ sv('#0f8','<circle cx="32" cy="32" r="25"/><circle cx="32" cy="32" r="15" stroke-dasharray="4 4"/><circle cx="32" cy="32" r="7" fill="currentColor"/><path d="M32 2v8M32 54v8M2 32h8M54 32h8"/>'),
+ /*7 Master Key (Wild)*/ sv('#f6f','<circle cx="17" cy="32" r="10"/><circle cx="17" cy="32" r="3" fill="currentColor"/><path d="M27 32h31M38 32v9M47 32v7M56 32v6"/>'),
+ /*8 Core-Orb (Core Link)*/ sv('#0ff','<circle cx="32" cy="32" r="22"/><circle cx="32" cy="32" r="11" fill="currentColor" fill-opacity=".4"/><path d="M20 22q12-9 24 0" stroke-width="2"/>')
+];
+let SYM=SYM1;const SC=6,WILD=7,ORB=8;
+const PAY=[[5,15,40],[5,15,40],[8,20,60],[10,30,100],[15,50,200],[20,80,300]]; // x Linieneinsatz für 3/4/5 Symbole
+const W=[20,18,16,10,7,5,3,0,9];   // Index 7 = Wild (dynamisch), 8 = Core-Orb                                                   // Symbol-Gewichte
+const LINES=[[1,1,1,1,1],[0,0,0,0,0],[2,2,2,2,2],[0,1,2,1,0],[2,1,0,1,2],[0,0,1,2,2],[2,2,1,0,0],[1,0,0,0,1],[1,2,2,2,1],[1,0,1,2,1]];
+
+/* ================= Audio (Web Audio API, komplett synthetisiert) ================= */
+let AC,mg,sx,bg,nb,muted=false;
+function ac(){
+ if(!AC){AC=new(window.AudioContext||window.webkitAudioContext)();mg=AC.createGain();mg.gain.value=.6;mg.connect(AC.destination);
+  sx=AC.createGain();sx.connect(mg);bg=AC.createGain();bg.gain.value=.35;bg.connect(mg);
+  nb=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  startBGM();}
+ if(AC.state==='suspended')AC.resume();
+}
+function tone(f,t,d,type='square',v=.15,f2=0,out=sx){const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,t);
+ if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(out);o.start(t);o.stop(t+d+.02)}
+function noise(t,d,v,f,out=sx){const s=AC.createBufferSource(),fl=AC.createBiquadFilter(),g=AC.createGain();s.buffer=nb;fl.type='bandpass';fl.frequency.value=f;
+ g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);s.connect(fl);fl.connect(g);g.connect(out);s.start(t,Math.random(),d)}
+/* BGM: Synthwave-Loop in Am-F-C-G (Kick, Hi-Hat, Bass, Arpeggio, Pad) – 16tel-Sequencer */
+let step=0,nt=0;
+function startBGM(){nt=AC.currentTime+.1;setInterval(()=>{while(nt<AC.currentTime+.3){bgNote(step++,nt);nt+=MU[mus].st}},80)}
+/* Eigene Musik je Modus: Akkorde, Tempo (st), Arpeggio (a), Wellenform (w), Kick-Raster (k) */
+const MU={base:{r:[110,87.3,130.8,98],st:.125,a:[2,3,4,3],w:'square',k:4},
+ fw:{r:[82.4,82.4,98,73.4],st:.18,a:[3,2.5,4,2],w:'sawtooth',k:8},
+ oc:{r:[146.8,130.8,164.8,196],st:.09,a:[4,6,8,6],w:'square',k:2},
+ lk:{r:[130.8,164.8,196,174.6],st:.12,a:[2,3,5,4],w:'triangle',k:4},
+ dr:{r:[146.8,130.8,164.8,110],st:.13,a:[2,2.25,3,3.33],w:'triangle',k:4,p:[1,1.25,1.5,1.667,2,1.5]},   // Slot 2 (pentatonisch)
+ drb:{r:[164.8,146.8,196,220],st:.1,a:[2,2.5,3,3.33],w:'triangle',k:2,p:[1,1.25,1.5,1.667,2,1.5]}};
+let mus='base';
+/* Extra-Layer für mehr Action: Snare, Hi-Hats, Sub-Bass, Lead, Snare-Roll, Riser-Sweep (alle 4 Takte) und Impact beim Drop */
+function bgFx(s,i,t,m,R){
+ if(i%8==4){noise(t,.12,.35,1800,bg);tone(220,t,.08,'triangle',.18,120,bg)}
+ if(i%2==1)noise(t,.02,.07,9000,bg);
+ if(i%8==6)noise(t,.15,.12,8000,bg);
+ if(i%4==0)tone(R/4,t,.22,'sine',.3,0,bg);
+ const j=[0,3,6,8,10,13].indexOf(i);if(j>=0)tone(R*2*(m.p||[2,3,2.5,4,3,2.25])[j],t,.2,m.p?'triangle':'sawtooth',.05,0,bg);
+ if(s%64>=56)noise(t,.05,.18,2500,bg);
+ if(s%64===48){const d=m.st*16,o=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();
+  o.buffer=nb;o.loop=true;f.type='bandpass';f.Q.value=4;f.frequency.setValueAtTime(300,t);f.frequency.exponentialRampToValueAtTime(9000,t+d);
+  g.gain.setValueAtTime(.01,t);g.gain.exponentialRampToValueAtTime(.4,t+d);g.gain.linearRampToValueAtTime(0,t+d+.05);
+  o.connect(f);f.connect(g);g.connect(bg);o.start(t);o.stop(t+d+.1);tone(200,t,d,'sawtooth',.06,1600,bg)}
+ if(s%64===0&&s>0){noise(t,1.2,.5,400,bg);tone(80,t,.6,'sine',.7,30,bg)}}
+function bgNote(s,t){const i=s%16,m=MU[mus],R=m.r[(s>>4)%4];
+ if(i%m.k==0)tone(150,t,.18,'sine',.6,40,bg);
+ if(i%4==2)noise(t,.04,.15,7000,bg);bgFx(s,i,t,m,R);
+ if(i%2==0)tone(R/2,t,.14,'sawtooth',.1,0,bg);
+ tone(R*m.a[i%4],t,.1,m.w,.03,0,bg);
+ if(i==0){tone(R*2,t,2.2,'triangle',.06,0,bg);tone(R*3,t,2.2,'triangle',.05,0,bg)}}
+const sfx={
+ click(){tone(900,AC.currentTime,.06,'square',.1,400)},
+ tick(){const t=AC.currentTime;noise(t,.03,.15,2500);tone(180,t,.03,'square',.05)},      // Rattern
+ land(){tone(120,AC.currentTime,.14,'sine',.35,50)},
+ tension(){const t=AC.currentTime;tone(150,t,1.5,'sawtooth',.12,900);for(let k=0;k<10;k++)tone(500,t+k*.15,.07,'square',.07)},
+ win(big){const t=AC.currentTime;(big?[523,659,784,1047,1319,1568,2093]:[523,659,784,1047]).forEach((f,i)=>{tone(f,t+i*.09,.3,'square',.1);tone(f*2,t+i*.09,.3,'triangle',.06)})},
+ good(){const t=AC.currentTime;tone(660,t,.1,'square',.12);tone(990,t+.08,.2,'square',.12)},
+ bad(){const t=AC.currentTime;noise(t,.6,.3,300);tone(300,t,.7,'sawtooth',.2,40)},
+ gong(){const t=AC.currentTime;[110,165,220,277].forEach(f=>tone(f,t,2.5,'sine',.25,0));noise(t,.5,.3,900)},
+ boom(){const t=AC.currentTime;tone(60,t,1,'sine',.7,25);noise(t,.8,.4,200);tone(200,t,1.2,'sawtooth',.15,1600);[523,659,784,1047,1319].forEach((f,i)=>tone(f,t+.5+i*.08,.4,'square',.08))}
+};
+$('#mute').onclick=()=>{ac();muted=!muted;mg.gain.value=muted?0:.6;$('#mute').textContent=muted?'🔇':'🔊'};
+addEventListener('pointerdown',ac);addEventListener('keydown',ac);
+
+/* ================= Partikel (Canvas): Konfetti & Datenstrom ================= */
+const cv=$('#fx'),cx=cv.getContext('2d');let P=[],run=false;
+const rs=()=>{cv.width=innerWidth;cv.height=innerHeight};rs();addEventListener('resize',rs);
+function burst(n,rain){const C=T2?['#fc0','#f44','#3d9','#fff','#f80']:['#0ff','#f0f','#fc0','#0f8','#fff'];
+ for(let i=0;i<n;i++)P.push({x:rain?Math.random()*cv.width:cv.width/2,y:rain?-20:cv.height*.5,vx:(Math.random()-.5)*(rain?1:14),vy:rain?2+Math.random()*5:-8-Math.random()*10,
+  s:6+Math.random()*8,r:0,vr:Math.random()-.5,c:C[i%5],ch:Math.random()<.5?'1':'0',rain,l:140+Math.random()*80});
+ if(!run){run=true;loop()}}
+function loop(){cx.clearRect(0,0,cv.width,cv.height);P=P.filter(p=>p.l-->0&&p.y<cv.height+30);
+ for(const p of P){p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;if(!p.rain)p.vy+=.35;cx.fillStyle=p.c;cx.globalAlpha=Math.min(1,p.l/40);
+  if(p.rain){cx.font=p.s*2+'px monospace';cx.shadowColor='#0f8';cx.shadowBlur=8;cx.fillStyle='#0f8';cx.fillText(p.ch,p.x,p.y)}
+  else{cx.save();cx.translate(p.x,p.y);cx.rotate(p.r);cx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);cx.restore()}}
+ cx.globalAlpha=1;cx.shadowBlur=0;P.length?requestAnimationFrame(loop):run=false}
+
+/* ================= Walzen-Aufbau ================= */
+const reelEls=[],strips=[];
+for(let i=0;i<5;i++){const r=document.createElement('div'),s=document.createElement('div');r.className='reel';s.className='strip';r.appendChild(s);$('#reels').appendChild(r);reelEls.push(r);strips.push(s)}
+function rnd(wild){const w=(T2?W2:W).slice();w[7]=wild;let x=Math.random()*w.reduce((a,b)=>a+b);for(let i=0;i<w.length;i++)if((x-=w[i])<0)return i;return 0}
+function cell(s,r,k){const d=document.createElement('div');d.className='cell'+(s===WILD?' wild':'')+(s>=ORB?' orb':'');d.innerHTML=SYM[s];if(r!=null&&sticky.has(r+','+k))d.classList.add('sticky');return d}
+function setReel(r,col){const s=strips[r];s.style.transition='none';s.style.transform='none';s.replaceChildren(...col.map((x,k)=>cell(x,r,k)))}
+/* Ergebnis-Raster erzeugen (Wilds nur auf Walzen 2-4). Tasten 1/2 erzwingen die Boni zum Testen. */
+function genGrid(){
+ const g=[];for(let r=0;r<5;r++){g[r]=[];for(let k=0;k<3;k++)g[r][k]=rnd(r>0&&r<4?(free?8:5):0)}
+ if(free)sticky.forEach(k=>{const[a,b]=k.split(',');g[a][b]=WILD});
+ if(force==='sc'){g[0][0]=g[2][1]=g[4][2]=SC}
+ if(force==='fs'){g[1][1]=g[2][1]=g[3][1]=WILD}
+ if(force&&force.slice(0,2)==='lk'){[[0,0],[1,1],[2,2],[3,0],[4,1],[2,0]].forEach(([r,k])=>g[r][k]=ORB+(+force[2]||0))}   // lk / lk1 / lk2 = Perlenfarbe
+ force=null;return g}
+cur=genGrid();cur.forEach((c,r)=>setReel(r,c));
+
+/* ================= Spin-Animation ================= */
+function animate(g){return new Promise(res=>{
+ const T=[];let sc=0;
+ for(let r=0;r<5;r++){let t=r?T[r-1]+330:800;
+  if(r>=2&&sc===2){t+=1500;setTimeout(()=>{sfx.tension();reelEls[r].classList.add('tense')},T[r-1]);setTimeout(()=>reelEls[r].classList.remove('tense'),t)} // Spannung: wartet auf 3. Scatter
+  T[r]=t;sc+=g[r].filter(s=>s===SC).length}
+ const iv=setInterval(sfx.tick,70);
+ for(let r=0;r<5;r++){
+  const s=strips[r],n=8+r*5,fin=n+3;
+  s.style.transition='none';s.style.transform='none';
+  s.replaceChildren(...cur[r].map(x=>cell(x)),...Array.from({length:n},()=>cell(rnd(0))),...g[r].map(x=>cell(x)),cell(rnd(0)));
+  void s.offsetHeight;s.classList.add('blur');
+  s.style.transition=`transform ${T[r]-220}ms cubic-bezier(.35,.1,.3,1)`;
+  s.style.transform=`translateY(calc(var(--c)*-${fin+.22}))`;                  // überschießen ...
+  setTimeout(()=>{s.classList.remove('blur');s.style.transition='transform 260ms cubic-bezier(.3,1.6,.5,1)';
+   s.style.transform=`translateY(calc(var(--c)*-${fin}))`;sfx.land()},T[r]-220);  // ... und elastisch einrasten
+  setTimeout(()=>setReel(r,g[r]),T[r]+300);}
+ setTimeout(()=>{clearInterval(iv);cur=g;res()},T[4]+330);
+})}
+
+/* ================= Gewinnauswertung ================= */
+function evalWins(g){
+ let total=0;const lb=bet/10;
+ LINES.forEach(L=>{
+  const sy=L.map((row,r)=>g[r][row]);let base=sy.find(s=>s!==WILD);
+  if(base===undefined)base=5;if(base===SC||base>=ORB)return;
+  let n=0;while(n<5&&(sy[n]===base||sy[n]===WILD))n++;
+  if(n>=3){total+=PAY[base][n-3]*lb*mult;for(let k=0;k<n;k++)strips[k].children[L[k]].classList.add('win')}   // Neon-Glow
+ });return total}
+function float(txt){const d=document.createElement('div');d.className='ft';d.textContent=txt;$('#frame').appendChild(d);setTimeout(()=>d.remove(),1500)}
+async function banner(h,p,ms){const m=$('#msg');m.innerHTML=`<h2>${h}</h2><p>${p}</p>`;m.classList.add('on');await sleep(ms);m.classList.remove('on')}
+function tween(a,b){const t0=performance.now();(function f(n){const k=Math.min(1,(n-t0)/700);lw=Math.round(a+(b-a)*k);$('#win').textContent=fmt(lw);if(k<1)requestAnimationFrame(f)})(t0)}
+function ui(){bet=B[bi];$('#bal').textContent=fmt(bal);$('#bet').textContent=fmt(bet);
+ $('#hud').classList.toggle('on',free);$('#fsl').textContent=fsLeft;$('#fsm').textContent=mult;$('#fsk').textContent='●'.repeat(kc)+'○'.repeat(4-kc);$('#hud').style.setProperty('--lv',lvl);
+ $('#spin').disabled=busy;['minus','plus','max','reset','denbtn','gamebtn'].forEach(i=>$('#'+i).disabled=busy||free);$('#spin').innerHTML=free?'FREE<br>'+fsLeft:'SPIN';jpUI()}
+
+/* ================= Ein Spin (Basis- oder Freispiel) ================= */
+async function oneSpin(){
+ const g=genGrid();await animate(g);
+ pips(g);shrine(g);
+ if(!free){const f=s=>g.flat().filter(x=>x===s).length,mw=g.slice(1,4).flat().filter(x=>x===WILD).length;M[0]=Math.min(100,M[0]+1+f(SC)*8);M[1]=Math.min(100,M[1]+1+mw*10);M[2]=Math.min(100,M[2]+1+f(ORB)*8);meterUI()} // Meter füllt sich: Spin +1, Scatter +5, Wild +3
+ if(free){ // Feature 2 (Mo-Mo-Money-Prinzip): Master Keys sammeln, alle 4 Keys steigt das Level, Multiplikator wächst (max. x7) + 1 Extra-Spin
+  const nw=g.flat().filter(s=>s===WILD).length;
+  if(nw){kc+=nw;sfx.good();let up=0;while(kc>=4){kc-=4;if(lvl<6){lvl++;up++}}if(up){mult=1+lvl;fsLeft+=up;sfx.win(1);burst(60);float('LEVEL UP! x'+mult+' +'+up+' SPIN')}ui()}}
+ const w=evalWins(g);
+ if(w){bal+=w;let from=0;if(free){from=fsWin;fsWin+=w;tween(from,fsWin)}else tween(0,w);ui();
+  const x=w/bet;float('+'+fmt(w));
+  if(x>=20){sfx.win(1);burst(160);burst(80,1);await banner('MEGA WIN',fmt(w)+(eur?'':' CREDITS'),2800)}
+  else if(x>=5){sfx.win(1);burst(100);burst(50,1);await banner('BIG WIN',fmt(w)+(eur?'':' CREDITS'),2200)}
+  else{sfx.win(0);burst(25);await sleep(1100)}}
+ else await sleep(350);
+ return{sc:!free&&!T2&&g.flat().filter(s=>s===SC).length>=3,keys:!free&&!T2&&[1,2,3].every(r=>g[r].includes(WILD)),link:!free&&(T2?pearlMode(g)>=0:g.flat().filter(s=>s===ORB).length>=4)}}
+
+/* ================= Bonus 1: The Firewall Breach (Pick & Click) ================= */
+const SRV='<svg viewBox="0 0 64 64"><rect x="10" y="8" width="44" height="48" rx="4"/><path d="M10 24h44M10 40h44"/><circle cx="18" cy="16" r="2"/><circle cx="18" cy="32" r="2"/><circle cx="18" cy="48" r="2"/></svg>';
+function firewall(){return new Promise(async res=>{
+ setMode('FIREWALL BREACH','#0f8','fw');await cinematic('FIREWALL BREACH','AI-CORE x3 · SERVER-ZUGRIFF ERHALTEN',SC,'#0f8');
+ const fw=$('#fw'),nd=$('#nodes');fw.classList.add('on');nd.innerHTML='';$('#fwsum').textContent='x0';
+ let sum=0,open=0,done=false;
+ const V=[...Array(5)].map(()=>{const x=Math.random();return x<.28?0:x<.6?2:x<.88?5:10}); // 0 = Systemabsturz-Falle
+ const nodes=V.map((v,i)=>{const b=document.createElement('button');b.className='node';b.innerHTML=SRV+'<small>NODE '+(i+1)+'</small>';nd.appendChild(b);
+  b.onclick=async()=>{if(done||b.dataset.o)return;b.dataset.o=1;open++;
+   if(v){sum+=v;b.className='node good';b.textContent=v+'x';sfx.good();$('#fwsum').textContent='x'+sum}
+   else{done=true;b.className='node bad';b.textContent='💥';sfx.bad();$('#fwsum').textContent='SYSTEMABSTURZ · x'+sum}
+   if(open===5)done=true;
+   if(done){nodes.forEach((n,j)=>{if(!n.dataset.o){n.className='node dim';n.textContent=V[j]?V[j]+'x':'💥'}});await sleep(2000);
+    fw.classList.remove('on');setMode('BASE GAME','#0ff');const p=bet*sum;
+    if(p){bal+=p;tween(0,p);float('+'+fmt(p));sfx.win(1);burst(100);ui();await sleep(1200)}res()}};
+  return b})})}
+
+/* ================= Bonus 2: Overclock Free Spins ================= */
+async function freeSpins(){
+ setMode('OVERCLOCK FREE SPINS','#f6f','oc');await cinematic('OVERCLOCK','10 FREISPIELE · SAMMLE KEYS · LEVEL UP · MULTIPLIKATOR WÄCHST',WILD,'#f6f');
+ free=true;fsLeft=10;mult=1;fsWin=0;kc=0;lvl=0;sticky=new Set();lw=0;$('#win').textContent=fmt(0);
+ while(fsLeft>0){busy=false;ui();await new Promise(r=>spinWait=r);busy=true;fsLeft--;ui();await oneSpin()} // jedes Freispiel per SPIN-Klick
+ free=false;sfx.win(1);burst(120,1);await banner('OVERCLOCK BEENDET','GESAMT '+fmt(fsWin)+(eur?'':' CREDITS')+' · MAX '+mult+'x',3000);
+ sticky.clear();mult=1;cur.forEach((c,r)=>setReel(r,c));setMode('BASE GAME','#0ff')}
+
+/* ================= Hauptsteuerung ================= */
+async function onSpin(){
+ if(spinWait){const w=spinWait;spinWait=null;sfx.click();w();return} // Freispiele: Spieler drückt selbst SPIN
+ if(busy)return;
+ while(bi>0&&B[bi]>bal)bi--;
+ if(bal<B[0]){float('RESET BALANCE!');return}
+ busy=true;bal-=B[bi];ui();lw=0;$('#win').textContent=fmt(0);sfx.click();M.forEach((m,i)=>{if(m>=100){pcDeny(i);M[i]=0}});meterUI() // Teaser: PC voll, aber KEIN Bonus
+ if(force==='rain'||Math.random()<.02)await codeRain(); // Code-Regen-Event: garantiert einen Bonus
+ const r=await oneSpin(),g0=cur;
+ if(r.sc){M[0]=0;meterUI();await firewall()}
+ if(r.keys){M[1]=0;meterUI();await freeSpins()}
+ if(r.link){M[2]=0;meterUI();await (T2?dragon(g0):link(g0))} // 6+ Cores: Core Link
+ busy=false;ui()}
+$('#spin').onclick=onSpin;
+$('#minus').onclick=()=>{sfx.click();bi=Math.max(0,bi-1);ui()};
+$('#plus').onclick=()=>{sfx.click();bi=Math.min(B.length-1,bi+1);ui()};
+$('#max').onclick=()=>{sfx.click();bi=B.length-1;while(bi>0&&B[bi]>bal)bi--;ui()};
+$('#reset').onclick=()=>{sfx.click();bal=Math.round(100/DN[di]);bi=3;M=[0,0,0];meterUI();ui()}; // Reset = 100 € Guthaben
+addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();onSpin()}if(e.key==='1')force='sc';if(e.key==='2')force='fs';if(e.key==='3')force='lk';if(e.key==='4')force='rain';if(e.key==='5')force='lk1';if(e.key==='6')force='lk2'}); // Test: 1=Firewall, 2=Freispiele
+/* Hack-Meter-Anzeige + Pips (zeigen gelandete AI-Cores / Walzen mit Master Key) */
+/* Hacker-PC: Bildschirm füllt sich mit Code (nur Show, kein Bonus) */
+const CODE=['ssh root@vault-%.net','bypass --layer %','inject payload_0x%','decrypt(aes256,key_%)','sudo ./crack.sh --force','ping 10.%.0.1 [OK]','scan ports 22,443,8080','unlock node_% ... done','rm -rf /logs/%','tunnel -> proxy_% ✓','spoof mac %:%:%','overflow(buffer_%)'];
+function meterUI(){const s=$('#pcs'),full=meter>=100,n=full?19:Math.min(18,Math.round(meter/100*18));
+ if(n<shown){s.innerHTML='';shown=0}
+ while(shown<n){const d=document.createElement('div');d.textContent=shown===18?'>> ROOT ACCESS ▓▓▓ 100%':'> '+CODE[Math.floor(Math.random()*CODE.length)].replace(/%/g,()=>Math.random().toString(16).slice(2,5));s.appendChild(d);shown++}
+ $('#pc').classList.toggle('full',full);$('#pcp').textContent=Math.floor(meter)+'%'}
+function pcDeny(){const p=$('#pc');$('#pcm').innerHTML='ACCESS DENIED<br><small>FIREWALL RESET</small>';p.classList.add('deny');sfx.bad();setTimeout(()=>p.classList.remove('deny'),1600)}
+/* Bonus-Animation: auslösende Symbole pulsieren, dann Vollbild-Cinematic mit Ringen, Glitch-Text und Screen-Shake */
+async function cinematic(h,p,sym,col){
+ cur.forEach((c,r)=>c.forEach((s,k)=>{if(s===sym)strips[r].children[k].classList.add('win')}));
+ sfx.boom();await sleep(900);
+ const m=$('#intro');m.style.setProperty('--k',col);
+ m.innerHTML='<div class="ring"></div><div class="ring" style="animation-delay:.5s"></div><div class="ring" style="animation-delay:1s"></div><div class="ico">'+SYM[sym]+'</div><h2>'+h+'</h2><p>'+p+'</p>';
+ m.classList.add('on');$('#app').classList.add('shake');burst(90,1);burst(60);
+ await sleep(3200);$('#app').classList.remove('shake');m.classList.remove('on')}
+function pips(g){const s=Math.min(3,g.flat().filter(x=>x===SC).length),k=[1,2,3].filter(r=>g[r].includes(WILD)).length,d=n=>'●'.repeat(n)+'○'.repeat(3-n);
+ $('#pips').innerHTML='<span style="color:#0f8">AI '+d(s)+'</span> <span style="color:#f6f">KEY '+d(k)+'</span>'}
+/* Währung umschalten: Credits <-> Euro */
+$('#curbtn').onclick=()=>{sfx.click();eur=!eur;$('#curbtn').textContent=eur?'€ → CR':'CR → €';$('#lb').textContent=eur?'GUTHABEN':'CREDITS';$('#win').textContent=fmt(lw);ui()};
+/* ===== Jackpots (Vielfache des Gesamteinsatzes) ===== */
+const JP={MINI:10,MINOR:25,MAJOR:100,GRAND:1000},JPK=Object.keys(JP);
+const JI=['♦','♠','♥','♕'];
+function jpUI(){$('#jp').innerHTML=JPK.map((k,i)=>`<div class="jc j${i}"><small>${JI[i]} ${k}</small><b>${fmt(JP[k]*bet)}</b></div>`).join('')}
+/* Aktiver Modus: Badge im Header + passende Musik */
+function setMode(n,c,m='base'){mus=(T2&&m==='base')?'dr':m;const e=$('#mode');e.textContent=n;e.style.setProperty('--mc',T2&&c==='#0ff'?'#fc0':c)}
+/* Denomination wechseln: Geldwert des Guthabens bleibt gleich, Credits werden umgerechnet */
+$('#denbtn').onclick=()=>{if(busy)return;sfx.click();const o=DN[di];di=(di+1)%DN.length;bal=Math.round(bal*o/DN[di]);$('#denbtn').textContent='DENOM '+DN[di].toFixed(2).replace('.',',')+' €';$('#win').textContent=fmt(lw);ui()};
+/* ===== Drei Hacker-Terminals (je Bonus eins): FW = Firewall, OC = Overclock, LINK = Core Link ===== */
+const CODES=[['bypass --layer %','scan ports 22,443','inject payload_0x%','decrypt(aes256,%)','unlock node_% ... ok'],
+ ['overclock --cpu +%00MHz','set mult x%','patch key_%.bin','collect(key_%)++','voltage 1.%V [WARN]'],
+ ['link core_%','mount orb[%]','hold&spin --respin 3','sync jackpot_%','charge cell % ▓▓']];
+function setTab(i){document.querySelectorAll('.tb').forEach((t,j)=>t.classList.toggle('on',j==i));document.querySelectorAll('.pcs').forEach((s,j)=>s.classList.toggle('on',j==i))}
+document.querySelectorAll('.tb').forEach(t=>t.onclick=()=>setTab(+t.dataset.i));
+function meterUI(){const sc=document.querySelectorAll('.pcs'),tb=document.querySelectorAll('.tb');let any=false;
+ M.forEach((m,i)=>{const s=sc[i],full=m>=100,n=full?19:Math.min(18,Math.round(m/100*18)),C=CODES[i];
+  if(n<SH[i]){s.innerHTML='';SH[i]=0}
+  while(SH[i]<n){const d=document.createElement('div');d.textContent=SH[i]===18?'>> ROOT ACCESS ▓▓▓ 100%':'> '+C[Math.floor(Math.random()*C.length)].replace(/%/g,()=>Math.random().toString(16).slice(2,4));s.appendChild(d);SH[i]++}
+  tb[i].classList.toggle('full',full);tb[i].querySelector('b').textContent=Math.floor(m)+'%';any=any||full});
+ $('#pc').classList.toggle('full',any)}
+function pcDeny(i){setTab(i);$('#pcm').innerHTML='ACCESS DENIED<br><small>'+['FIREWALL','OVERCLOCK','CORE LINK'][i]+' RESET</small>';const p=$('#pc');p.classList.add('deny');sfx.bad();setTimeout(()=>p.classList.remove('deny'),1600)}
+/* ===== Bonus 3: Core Link (Hold & Respin, wie Dragon Link) =====
+   4+ Cores lösen aus. Cores bleiben liegen, 3 Respins; jeder neue Core setzt die Respins auf 3 zurück.
+   Volles Board (15 Cores) = GRAND Jackpot. Einzelne Cores können Mini/Minor/Major/Grand-Cores sein. */
+function mkOrb(){const x=Math.random();
+ if(x<.1){const y=Math.random(),j=y<.5?'MINI':y<.8?'MINOR':y<.95?'MAJOR':'GRAND';return{j,m:JP[j]}}
+ return{m:[.5,.5,1,1,1,2,2,3,5,10][Math.floor(Math.random()*10)]}}
+async function link(g){
+ setMode('CORE LINK','#0ff','lk');await cinematic('CORE LINK','4+ CORES · HOLD & RESPIN · FÜLLE DAS BOARD',ORB,'#0ff');
+ const L=$('#lk'),G=$('#lkg'),O={},cells=[];let sp=3;G.innerHTML='';
+ for(let i=0;i<15;i++){const d=document.createElement('div');d.className='oc';G.appendChild(d);cells.push(d)}
+ const put=(i,o)=>{O[i]=o;cells[i].className='oc on'+(o.j?' j':'');if(o.j){const jc=$('#lkj').children[JPK.indexOf(o.j)];if(jc)jc.classList.add('hit')}cells[i].innerHTML='<b>'+(o.j||fmt(Math.round(o.m*bet)))+'</b>'};
+ const tot=()=>Object.values(O).reduce((a,o)=>a+Math.round(o.m*bet),0);
+ const upd=()=>{$('#lks').textContent='RESPINS '+sp;$('#lkt').textContent=fmt(tot())};
+ g.forEach((col,r)=>col.forEach((s,k)=>{if(s===ORB)put(k*5+r,mkOrb())}));
+ $('#lkj').innerHTML=$('#jp').innerHTML;L.classList.add('on');upd();await sleep(1200);
+ while(sp>0&&Object.keys(O).length<15){
+  const emp=cells.map((c,i)=>i).filter(i=>!O[i]);
+  emp.forEach(i=>cells[i].classList.add('spn'));
+  const iv=setInterval(sfx.tick,90);await sleep(1100);clearInterval(iv);
+  let got=0;
+  for(const i of emp){cells[i].classList.remove('spn');if(Math.random()<.17){put(i,mkOrb());cells[i].classList.add('pop');sfx.good();burst(8);got++;await sleep(300)}}
+  sp=got?3:sp-1;upd();await sleep(600)}
+ const full=Object.keys(O).length===15,pay=tot()+(full?JP.GRAND*bet:0),js=Object.values(O).filter(o=>o.j).map(o=>o.j);
+ const tp=full?'GRAND':['GRAND','MAJOR','MINOR','MINI'].find(j=>js.includes(j));
+ sfx.win(1);burst(150);burst(70,1);
+ await banner(tp?tp+' JACKPOT':'CORE LINK','GESAMT '+fmt(pay),3200);
+ L.classList.remove('on');bal+=pay;tween(0,pay);ui();setMode('BASE GAME','#0ff')}
+/* ===== Code-Regen: zufälliges Event (~2% pro Spin), garantiert im aktuellen Spin einen Bonus ===== */
+function rainFx(ms){return new Promise(res=>{const c=$('#rain'),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;c.style.display='block';
+ const cols=Math.ceil(c.width/16),y=Array.from({length:cols},()=>-Math.random()*40),t0=performance.now();
+ (function f(n){x.globalCompositeOperation='destination-out';x.fillStyle='rgba(0,0,0,.1)';x.fillRect(0,0,c.width,c.height);x.globalCompositeOperation='source-over';
+  x.font='16px monospace';x.fillStyle='#0f8';x.shadowColor='#0f8';x.shadowBlur=6;
+  y.forEach((v,i)=>{x.fillText(String.fromCharCode(0x30A0+Math.random()*60|0),i*16,v*16);y[i]=v*16>c.height&&Math.random()>.96?0:v+1});
+  if(n-t0<ms)requestAnimationFrame(f);else{x.clearRect(0,0,c.width,c.height);c.style.display='none';res()}})(t0)})}
+async function codeRain(){const k=Math.random();force=T2?'lk'+(Math.random()*3|0):k<.4?'sc':k<.8?'lk':'fs';sfx.tension();
+ await Promise.all([rainFx(2800),banner('⚡ CODE RAIN ⚡','BONUS GARANTIERT',2800)]);sfx.boom()}
+/* ===== SLOT 2: DRAGON PEARL (anderes Theme, gleiche Walzen-Engine, eigene Symbole/Musik/Boni) ===== */
+const SYM2=[
+ sv('#f55','<path d="M26 8h12M32 8v6"/><ellipse cx="32" cy="32" rx="16" ry="18"/><path d="M32 14v36M22 18q-4 14 0 28M42 18q4 14 0 28M26 50h12M32 50v8"/>'),   // Laterne
+ sv('#fa6','<path d="M32 54L8 24q24-16 48 0z"/><path d="M32 54L20 18M32 54l12-36M32 54V16"/>'),                                          // Fächer
+ sv('#fb3','<path d="M10 32q14-16 30-4l14-8-4 12 4 12-14-8q-16 12-30-4z"/><circle cx="18" cy="30" r="2" fill="currentColor"/>'),                // Koi
+ sv('#3d9','<circle cx="32" cy="32" r="24"/><circle cx="32" cy="32" r="19" stroke-width="1.5"/><rect x="25" y="25" width="14" height="14" rx="2"/>'), // Jade-Münze
+ sv('#fc0','<path d="M32 6v6M20 18h24l-4-6H24zM16 32h32l-5-8H21zM12 48h40l-6-10H18zM18 48v10M46 48v10"/>'),                             // Pagode
+ sv('#f63','<path d="M10 42q0-24 22-28 12 0 20 10-8 0-10 6 10 2 10 14-8-6-16-2-6 6-18 2z"/><circle cx="36" cy="25" r="2.5" fill="currentColor"/><path d="M18 22q-4-8-10-10M26 17q0-8-4-12"/>'), // Drache
+ sv('#fc0','<circle cx="32" cy="32" r="18"/><circle cx="32" cy="32" r="7" fill="currentColor"/><path d="M8 8v50M56 8v50M8 10h48"/>'),                // Gong (ungenutzt)
+ sv('#ff4','<path d="M8 30q4 14 24 14t24-14q-8 6-24 6T8 30zM14 28q4-14 18-14t18 14"/><path d="M26 22q6-4 12 0"/>'),                          // Wild: Goldbarren
+ sv('#fc0','<circle cx="32" cy="32" r="22"/><path d="M32 10a22 22 0 0 1 0 44 11 11 0 0 1 0-22 11 11 0 0 0 0-22z" fill="currentColor" fill-opacity=".35"/><circle cx="32" cy="21" r="3" fill="currentColor"/><circle cx="32" cy="43" r="3"/>')  // Drachenperle
+];
+/* Drachenperlen in 3 Farben: Gold = Zwei Welten, Rot = Drachenatem (+1 Spins), Jade = Feuersäule (Spalten-Multi) */
+const PEARL='<circle cx="32" cy="32" r="22"/><path d="M32 10a22 22 0 0 1 0 44 11 11 0 0 1 0-22 11 11 0 0 0 0-22z" fill="currentColor" fill-opacity=".35"/><circle cx="32" cy="21" r="3" fill="currentColor"/><circle cx="32" cy="43" r="3"/>';
+SYM2.push(sv('#f64',PEARL),sv('#3d9',PEARL));
+const W2=[20,18,16,10,7,5,0,0,6,6,6];
+const ICO=['<rect x="6" y="14" width="24" height="36" rx="3"/><rect x="34" y="14" width="24" height="36" rx="3"/><path d="M12 24h12M12 32h12M40 24h12M40 32h12"/>',
+ '<path d="M32 6c4 12 16 16 16 30a16 16 0 0 1-32 0c0-8 6-10 8-18 4 4 4 8 4 8 2-6 2-12 4-20z"/><path d="M28 44h8M32 40v8"/>',
+ '<rect x="22" y="6" width="20" height="52" rx="4"/><path d="M22 22h20M22 38h20M32 12v6"/>'];
+const reelHTML=()=>'<div class="rs">'+'<i class="rb"></i><i class="re"></i>'.repeat(4)+'</div>';   // Mini-Walze: Ball / leer im Wechsel
+function shrine(g){const f=g.flat(),r=(s,c,t)=>{const n=Math.min(4,f.filter(x=>x===s).length);return `<div style="color:${c}">${'●'.repeat(n)+'○'.repeat(4-n)} ${t}</div>`};
+ $('#shp').innerHTML=r(8,'#fc0','BOARDS')+r(9,'#f64','SPINS')+r(10,'#3d9','MULTI')}
+/* Slot wechseln: Symbole, Gewichte, Theme, Titel, Laternen-Animation */
+function setGame(v){T2=v;SYM=v?SYM2:SYM1;document.body.classList.toggle('t2',v);
+ $('#ttl').innerHTML=v?'DRAGON <span>PEARL</span>':'CYBER VAULT <span>NEON HACK</span>';$('#gamebtn').textContent=v?'\u26a1 SLOT 1':'\ud83d\udc09 SLOT 2';
+ $('#fl').innerHTML=v?Array.from({length:8},(_,i)=>`<i style="left:${i*12+Math.random()*8}%;animation-delay:${-i*2}s;width:${28+Math.random()*30}px">${SYM2[0]}</i>`).join(''):'';
+ setMode('BASE GAME','#0ff');cur=genGrid();cur.forEach((c,r)=>setReel(r,c));shrine(cur);pips(cur);ui()}
+$('#gamebtn').onclick=()=>{if(busy)return;sfx.click();setGame(!T2)};
+/* Schrein-Auswahl: Spieler wählt eines der drei Boni */
+function pick(){return new Promise(res=>{const P=$('#pk'),C=$('#pkc');C.innerHTML='';P.classList.add('on');
+ [['ZWEI WELTEN','Doppeltes Board · 30 Felder','#fc0'],['DRACHENATEM','+1-Perlen geben Extra-Spins und verschwinden wieder','#f64'],['FEUERSÄULE','Ganze Spalte voll = x2 bis x10','#3d9']].forEach((a,i)=>{
+  const b=document.createElement('button');b.className='pcard';b.style.setProperty('--k',a[2]);b.innerHTML=sv(a[2],ICO[i])+'<b>'+a[0]+'</b><small>'+a[1]+'</small>';
+  b.onclick=()=>{sfx.boom();P.classList.remove('on');res(i)};C.appendChild(b)})})}
+/* Orb-Werte: Major sehr selten, KEIN Grand-Orb (Grand nur bei komplett vollem Board) */
+function mkOrb(){const x=Math.random();
+ if(x<.08){const y=Math.random(),j=y<.7?'MINI':y<.96?'MINOR':'MAJOR';return{j,m:JP[j]}}
+ return{m:[.5,.5,1,1,1,2,2,3,5,10][Math.floor(Math.random()*10)]}}
+/* ===== Hold & Respin Engine (Core Link + Dragon Pearl) =====
+   o.nb: Anzahl Boards (1/2) · o.extra: +1-Spin-Perlen (verschwinden wieder) · o.col: volle Spalte = Multiplikator x2-x10 · o.t2: Theme
+   Leere Felder drehen wie Mini-Walzen (Ball / leer) und stoppen Spalte für Spalte. Neue Perle = Respins zurück auf 3. */
+async function holdSpin(g,o){
+ const nb=o.nb||1,N=nb*15,L=$('#lk'),G=$('#lkg'),O={},CM={},cells=[];let sp=3;G.innerHTML='';
+ for(let b=0;b<nb;b++){const bd=document.createElement('div');bd.className='bd';G.appendChild(bd);for(let i=0;i<15;i++){const d=document.createElement('div');d.className='oc';bd.appendChild(d);cells.push(d)}}
+ $('#lkj').innerHTML=$('#jp').innerHTML;
+ const put=(i,v)=>{O[i]=v;const d=cells[i];d.className='oc on'+(v.j?' j':'');d.innerHTML='<b>'+(v.j||fmt(Math.round(v.m*bet)))+'</b>';
+  if(v.j){const jc=$('#lkj').children[JPK.indexOf(v.j)];if(jc)jc.classList.add('hit')}};
+ const cm=i=>CM[(i/15|0)+'-'+i%5]||1;
+ const tot=()=>Object.keys(O).reduce((a,i)=>a+Math.round(O[i].m*bet)*cm(+i),0);
+ const upd=()=>{$('#lks').textContent='RESPINS '+sp;$('#lkt').textContent=fmt(tot())};
+ g.forEach((col,r)=>col.forEach((s,k)=>{if(s>=ORB)put(k*5+r,mkOrb())}));
+ L.style.setProperty('--pc',o.c||'#fc0');L.className='on'+(o.t2?' t2':'')+(nb>1?' two':'');upd();await sleep(1200);
+ while(sp>0&&Object.keys(O).length<N){
+  const emp=cells.map((c,i)=>i).filter(i=>!O[i]);
+  emp.forEach(i=>{cells[i].className='oc spn';cells[i].innerHTML=reelHTML()});
+  const iv=setInterval(sfx.tick,90);let got=0,ex=0;
+  for(let c=0;c<5;c++){await sleep(c?190:900);
+   for(const i of emp.filter(i=>i%5===c)){const d=cells[i];
+    if(Math.random()<.17){
+     if(o.extra&&Math.random()<.14){ex++;d.className='oc on x';d.innerHTML='<b>+1</b>';sfx.win(0);setTimeout(()=>{d.className='oc';d.innerHTML=''},1100)}   // +1-Perle: Spin gutschreiben, Perle verschwindet
+     else{put(i,mkOrb());d.classList.add('pop');sfx.good();got++}
+     burst(6)}
+    else{d.className='oc st';d.innerHTML=''}}
+   sfx.land()}
+  clearInterval(iv);sp=(got?3:sp-1)+ex;upd();
+  if(o.col)for(let b=0;b<nb;b++)for(let c=0;c<5;c++){const k=b+'-'+c;   // ganze Spalte voll -> Zufalls-Multiplikator (10 am seltensten)
+   if(!CM[k]&&[0,1,2].every(r=>O[b*15+r*5+c])){
+    const w=[30,22,16,11,8,5,4,3,1];let x=Math.random()*100,mv=2;for(let q=0;q<9;q++){if((x-=w[q])<0){mv=q+2;break}}
+    CM[k]=mv;[0,1,2].forEach(r=>cells[b*15+r*5+c].classList.add('mc'));cells[b*15+5+c].insertAdjacentHTML('beforeend','<em>x'+mv+'</em>');
+    sfx.boom();burst(60);upd();await banner('FEUERSÄULE','MULTIPLIKATOR x'+mv,1500)}}
+  await sleep(ex?1200:500)}
+ const full=Object.keys(O).length===N,pay=tot()+(full?JP.GRAND*bet:0),js=Object.keys(O).map(i=>O[i].j).filter(Boolean);
+ const tp=full?'GRAND':['MAJOR','MINOR','MINI'].find(j=>js.includes(j));   // GRAND nur bei komplett vollem Board
+ sfx.win(1);burst(150);burst(70,1);
+ await banner(tp?tp+' JACKPOT':(o.t2?'DRACHENPERLEN':'CORE LINK'),'GESAMT '+fmt(pay),3200);
+ L.className='';bal+=pay;tween(0,pay);ui();setMode('BASE GAME','#0ff')}
+async function link(g){setMode('CORE LINK','#0ff','lk');await cinematic('CORE LINK','4+ CORES · HOLD & RESPIN · FÜLLE DAS BOARD',ORB,'#0ff');await holdSpin(g,{})}
+/* Perlenfarbe bestimmt den Bonus: die Farbe mit den meisten Perlen (mind. 4) gewinnt; 0 = Gold, 1 = Rot, 2 = Jade */
+function pearlMode(g){const c=[8,9,10].map(s=>g.flat().filter(x=>x===s).length),m=Math.max(...c);return m>=4?c.indexOf(m):-1}
+async function dragon(g){const m=Math.max(0,pearlMode(g)),C=['#fc0','#f64','#3d9'],N=['ZWEI WELTEN','DRACHENATEM','FEUERSÄULE'],D=['GOLDPERLEN · DOPPELTES BOARD','ROTE PERLEN · +1 EXTRA-SPINS','JADE-PERLEN · SPALTE VOLL = x2-x10'];
+ setMode(N[m],C[m],'drb');sfx.gong();await cinematic(N[m],D[m],8+m,C[m]);
+ 
+ await holdSpin(g,{t2:true,c:C[m],nb:m===0?2:1,extra:m===1,col:m===2})}
+$('#shs').innerHTML=SYM2[8];
+ui();meterUI();pips(cur);$('#win').textContent=fmt(0);
+</script></body></html>
